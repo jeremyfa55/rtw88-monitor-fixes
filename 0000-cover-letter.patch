@@ -1,0 +1,129 @@
+From e5bbb08dd1a7a59c00d419012aeb2e293353fa08 Mon Sep 17 00:00:00 2001
+From: Jeremy Fareau <jeremy.fareau@cykrony.com>
+Date: Tue, 7 Oct 2026 09:40:00 +0300
+Subject: [PATCH wireless 0/2] wifi: rtw88: channel and control frame filter
+ lost on interface restart
+
+Two fixes for rtw88, both with the same root cause: after an interface
+stop/start cycle the chip is reset by power_off()/power_on(), but
+mac80211 only calls config() and configure_filter() when its own state
+changes. After the cycle nothing has changed from mac80211's point of
+view, so neither the radio channel nor the control frame filter is
+reprogrammed.
+
+The user-visible effect is that iw reports the configured channel while
+the adapter listens elsewhere, with no error anywhere. This makes an
+RTL8814AU look like broken hardware in monitor mode.
+
+Patch 1 programs the channel in rtw_ops_start(). The IPS resume path
+already does this in rtw_ips_pwr_up(); only the ieee80211_ops::start()
+path was missing it. It is deliberately not placed in rtw_core_start()
+so that the IPS path, and its rtw_coex_ips_notify(COEX_IPS_LEAVE)
+ordering, is left untouched.
+
+Patch 2 restores REG_RXFLTMAP1 in rtw_core_start(), next to the RCR
+restore that exists for the same reason. It applies on top of
+ed51a86b787f ("wifi: rtw88: Enable receiving control frames in monitor
+mode"), which enables the filter but does not restore it after the chip
+is powered back on.
+
+Test setup
+==========
+
+Raspberry Pi 4B, aarch64, Ubuntu 26.04.1, kernel 7.0.0-1020-raspi,
+in-kernel rtw88 with ed51a86b787f backported. Two adapters on the same
+host, both in monitor mode on channel 6, captured in parallel:
+
+  - ALFA AWUS1900     RTL8814AU   rtw88_8814au
+  - Linksys WUSB6300  RTL8812AU   rtw88_8812au
+
+Isolating the channel defect. Six runs, full USB unbind/rebind between
+each, 25 s captures:
+
+  run  sequence after "ip link up"          frames
+   1   set channel 6                             3
+   2   set channel 6 again                       0
+   3   set channel 6 twice in a row              3
+   4   no set channel at all                     3
+   5   set channel 11 - a real change          431
+   6   WUSB6300 control, same as run 1        2438
+
+Only an actual channel change reaches the hardware.
+
+Both patches applied, five consecutive down/up cycles, 25 s captures,
+total frames and control frames:
+
+  cycle   AWUS1900            WUSB6300
+    1     6639 / 4556         2274 / 1506
+    2     9622 / 7754         2937 / 2214
+    3     6847 / 4985         2166 / 1475
+    4     7420 / 5542         2493 / 1789
+    5     7703 / 5250         2440 / 1625
+
+Without the patches the control counts are 0 on both adapters, and the
+AWUS1900 total drops to 0-4 from the first cycle on.
+
+Also verified
+=============
+
+  - rtw_set_channel() takes no lock and every caller already holds
+    rtwdev->mutex, so the added call in rtw_ops_start() is correctly
+    serialised.
+  - Station mode unaffected: scans return 28 then 34 BSS (AWUS1900),
+    10 then 11 (WUSB6300).
+  - Three rmmod/insmod cycles, clean.
+  - dmesg: no WARNING, BUG, Oops or call trace.
+  - checkpatch.pl --strict: 0 errors, 0 warnings, 0 checks.
+  - Build: no code warnings.
+
+NOT verified
+============
+
+  - PCI and SDIO paths. Patch 2 touches rtw_core_start(), shared by all
+    bus types. Only USB was exercised; no PCI or SDIO hardware was
+    available.
+  - lockdep. CONFIG_PROVE_LOCKING is not enabled on the test kernel, so
+    the absence of a deadlock rests on code review and on use, not on
+    instrumentation.
+  - Other chips. Only RTL8814AU and RTL8812AU were exercised. Patch 2
+    also concerns RTL8723D, RTL8703B and RTL8821A by construction.
+  - Bisection. The Fixes: tag on patch 1 was derived by reading the
+    history, not by bisecting.
+
+The series is based on mainline 69f80fef3153 (v7.3-rc7). Happy to rebase
+onto wireless/main if that is preferred.
+
+Tooling disclosure
+==================
+
+Per Documentation/process/generated-content.rst: the diagnosis, the code
+and the commit messages in this series were produced by an AI coding
+assistant over an interactive session. I was investigating why an
+RTL8814AU adapter captured nothing in monitor mode while an RTL8812AU on
+the same host captured normally; the assistant proposed and discarded
+two incorrect hypotheses (USB power, then a first-configuration-only
+effect) before the measurement table above isolated the real mechanism.
+It then wrote the fixes, built them, and ran the tests listed here on
+the hardware described. All numbers quoted are from that hardware, not
+from the model.
+
+I have read and understood both changes and I am taking responsibility
+for them; the Signed-off-by tags below are mine. Both patches also carry
+Assisted-by: LLM per Documentation/process/coding-assistants.rst.
+
+The patches, the raw measurements and this summary are also at
+https://github.com/jeremyfa55/rtw88-monitor-fixes
+
+Jeremy Fareau (2):
+  wifi: rtw88: program the channel when the device is started
+  wifi: rtw88: restore the control frame filter when the device is
+    started
+
+ drivers/net/wireless/realtek/rtw88/mac80211.c | 16 ++++++++++++++--
+ drivers/net/wireless/realtek/rtw88/main.c     |  8 ++++++++
+ drivers/net/wireless/realtek/rtw88/main.h     |  1 +
+ 3 files changed, 23 insertions(+), 2 deletions(-)
+
+-- 
+2.51.0
+

@@ -1,5 +1,5 @@
 From e5bbb08dd1a7a59c00d419012aeb2e293353fa08 Mon Sep 17 00:00:00 2001
-From: Jeremy Fareau <jeremy.fareau@cykrony.com>
+From: Jeremy Fareau <jeremy.fareau@gmail.com>
 Date: Tue, 7 Oct 2026 09:40:00 +0300
 Subject: [PATCH wireless 0/2] wifi: rtw88: channel and control frame filter
  lost on interface restart

@@ -1,5 +1,5 @@
 From 96d219d6a9e779ac1019ab1a467437bcbb4a52ca Mon Sep 17 00:00:00 2001
-From: Jeremy Fareau <jeremy.fareau@cykrony.com>
+From: Jeremy Fareau <jeremy.fareau@gmail.com>
 Date: Wed, 7 Oct 2026 09:04:05 +0300
 Subject: [PATCH wireless 1/2] wifi: rtw88: program the channel when the device
  is started
@@ -27,6 +27,7 @@ does when leaving IPS.
 
 Fixes: e3037485c68e ("rtw88: new Realtek 802.11ac driver")
 Assisted-by: LLM
+Signed-off-by: Jeremy Fareau <jeremy.fareau@gmail.com>
 ---
  drivers/net/wireless/realtek/rtw88/mac80211.c | 11 +++++++++++
  1 file changed, 11 insertions(+)

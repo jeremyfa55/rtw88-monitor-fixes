@@ -18,6 +18,13 @@ Patch 0002 only applies on top of commit `ed51a86b787f` ("wifi: rtw88: Enable re
 control frames in monitor mode", v7.3-rc1), which enables the filter but does not restore it
 after the chip is powered back on.
 
+## Submitted upstream
+
+Sent to `linux-wireless` on 2026-10-07. Thread:
+<https://lore.kernel.org/linux-wireless/20261007091225.413-1-jeremy.fareau@gmail.com/>
+
+The `.patch` files here are byte-identical to what was sent.
+
 ## Test setup
 
 Raspberry Pi 4B, aarch64, Ubuntu 26.04.1, kernel `7.0.0-1020-raspi`, in-kernel `rtw88` with
@@ -89,8 +96,8 @@ drops to 0–4 from the first cycle on.
 Per `Documentation/process/generated-content.rst` and
 `Documentation/process/coding-assistants.rst`: the diagnosis, the code and the commit
 messages were produced by an AI coding assistant in an interactive session. All measurements
-were taken on real hardware. Both patches carry `Assisted-by: LLM` and **no**
-`Signed-off-by` — only a human can certify the DCO.
+were taken on real hardware. Both patches carry `Assisted-by: LLM`; the `Signed-off-by`
+tags were added by hand, because only a human can certify the DCO.
 
 ## Applying
 
